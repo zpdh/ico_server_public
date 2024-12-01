@@ -1,6 +1,7 @@
 ﻿import validateJwtToken from "../security/jwtTokenValidator.js";
 import TomeModel from "../models/tomeModel.js";
-import { Request, Response, Router } from "express";
+import {Request, Response, Router} from "express";
+import checkIfPlayerIsInICoAsync from "../services/wynncraftApiClient.js";
 
 /**
  * Maps all tome-related endpoints
@@ -10,13 +11,13 @@ const tomeRouter = Router();
 tomeRouter.get("/tomes", async (request: Request, response: Response) => {
     try {
         // Get users ordered by time added
-        const tomeList = await TomeModel.find({}).sort({ dateAdded: 1 });
+        const tomeList = await TomeModel.find({}).sort({dateAdded: 1});
 
         // Return 'OK' if nothing goes wrong
         response.status(200).send(tomeList);
     } catch (error) {
         response.status(500);
-        response.send({ error: "Something went wrong processing the request." });
+        response.send({error: "Something went wrong processing the request."});
         console.error("getTomesError:", error);
     }
 });
@@ -24,7 +25,7 @@ tomeRouter.get("/tomes", async (request: Request, response: Response) => {
 tomeRouter.get("/tomes/:username", async (request: Request<{ username: string }>, response: Response) => {
     try {
         // Search for specific user
-        const result = await TomeModel.findOne({ username: request.params.username }).collation({
+        const result = await TomeModel.findOne({username: request.params.username}).collation({
             strength: 2,
             locale: "en",
         });
@@ -37,14 +38,14 @@ tomeRouter.get("/tomes/:username", async (request: Request<{ username: string }>
         }
 
         const position =
-            (await TomeModel.find({ dateAdded: { $lt: result.dateAdded.getTime() } }).countDocuments()) + 1;
+            (await TomeModel.find({dateAdded: {$lt: result.dateAdded.getTime()}}).countDocuments()) + 1;
 
         // Return 'OK' if nothing goes wrong
-        response.status(200).send({ username: result.username, position: position });
+        response.status(200).send({username: result.username, position: position});
         console.log("GET:", result.username, "at position", position);
     } catch (error) {
         response.status(500);
-        response.send({ error: "Something went wrong processing the request." });
+        response.send({error: "Something went wrong processing the request."});
         console.error("getTomesSpecificError:", error);
     }
 });
@@ -53,6 +54,14 @@ tomeRouter.post("/tomes", validateJwtToken, async (request: Request, response: R
     try {
         // Save tome model on database
         const tomeData = request.body;
+        const username = tomeData.username;
+
+        const isInICo = checkIfPlayerIsInICoAsync(username);
+
+        if (!isInICo) {
+            response.status(400).send({error: "User not in ICo"});
+            return;
+        }
 
         const exists = await TomeModel.findOne({
             username: tomeData.username,
@@ -63,7 +72,7 @@ tomeRouter.post("/tomes", validateJwtToken, async (request: Request, response: R
 
         // If user exists, return 'Bad Request'
         if (exists) {
-            response.status(400).send({ error: "User already in tome list." });
+            response.status(400).send({error: "User already in tome list."});
             return;
         }
 
