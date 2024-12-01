@@ -1,20 +1,14 @@
 ﻿import RaidModel from "../models/raidModel.js";
+import { Request, Response, Router } from "express";
 import UserModel from "../models/userModel.js";
-import validateJwtToken from "../security/jwtTokenValidator.js";
-import {Request, Response, Router} from "express";
-
-interface RaidRequestBody {
-    users: string[];
-    raid: string;
-    timestamp: number;
-}
+import { UUIDtoUsername } from "../services/ConvertMinecraftUser.js";
 
 /**
- * Maps all raid-related endpoints.
+ * Maps all raid-related endpoints base route: /raids.
  */
 const raidRouter = Router();
 
-raidRouter.get("/raids", async (request: Request, response: Response) => {
+raidRouter.get("/", async (request: Request, response: Response) => {
     try {
         const raids = await RaidModel.find({});
         response.status(200);
@@ -22,53 +16,28 @@ raidRouter.get("/raids", async (request: Request, response: Response) => {
 
         console.log("GET:", raids);
     } catch (error) {
-        response.status(500);
-        response.send("Something went wrong processing the request.");
+        response.status(500).send({ error: "Something went wrong processing the request." });
         console.error("getRaidsError:", error);
     }
 });
 
-raidRouter.post("/addRaid", validateJwtToken, async (request: Request<{}, {}, RaidRequestBody>, response: Response) => {
+raidRouter.get("/leaderboard", async (request: Request, response: Response) => {
     try {
-        const {users, raid, timestamp} = request.body;
-
-        const sortedUsers = users.sort((user1, user2) => user1.localeCompare(user2, "en", {sensitivity: "base"}));
-
-        const newRaid = new RaidModel({
-            users: sortedUsers,
-            raid,
-            timestamp,
-        });
-
-        // Gets last raid that the same team completed
-        const lastRaid = await RaidModel.findOne({users: sortedUsers})
-            .sort({timestamp: -1})
-            .collation({locale: "en", strength: 2});
-
-        // If there is a last raid and timestamp difference is < 10 seconds, return an error
-        if (lastRaid && newRaid.timestamp.valueOf() - lastRaid.timestamp.valueOf() < 10000) {
-            response.send({err: "duplicate raid"});
-            return;
+        const topUsers = await UserModel.find({ raids: { $gt: 0 } })
+            .sort({ raids: "descending" })
+            .limit(10);
+        let formattedTopUsers: { username: string; raids: number }[] = [];
+        // TODO implement mojang api bulk uuid to username call
+        for (let i = 0; i < topUsers.length; i++) {
+            const topUser = await topUsers[i]
+                .$set({ username: await UUIDtoUsername(topUsers[i].uuid.toString()) })
+                .save();
+            formattedTopUsers.push({ username: topUser.username.toString(), raids: topUser.raids.valueOf() });
         }
-
-        await newRaid.save();
-
-        // Add users to db and increase aspect counter by 0.5
-        await Promise.all(
-            newRaid.users.map((username) => {
-                UserModel.updateOne(
-                    {username: username},
-                    {$inc: {aspects: 0.5}},
-                    {upsert: true, collation: {locale: "en", strength: 2}}
-                ).then(() => console.log(username, "got 0.5 aspects"));
-            })
-        );
-        response.send({err: ""});
+        response.send(formattedTopUsers);
     } catch (error) {
-        response.status(500);
-        response.send({err: "something went wrong"});
-
-        console.error("postRaidError:", error);
+        response.status(500).send({ error: "Something went wrong processing the request" });
+        console.error("getRaidsLeaderboardError:", error);
     }
 });
 

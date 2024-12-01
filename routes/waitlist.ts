@@ -1,10 +1,9 @@
-﻿import {Request, Response, Router} from "express";
+﻿import { Request, Response, Router } from "express";
 import WaitlistModel from "../models/waitlistModel.js";
 import validateJwtToken from "../security/jwtTokenValidator.js";
 
 /**
  * Maps all tome-related endpoints
- * @param {Express} app
  */
 const waitlistRouter = Router();
 
@@ -17,7 +16,6 @@ waitlistRouter.get("/waitlist", async (request: Request, response: Response) => 
 
         // Return 'OK' with users in waitlist if nothing goes wrong
         response.status(200).send(waitlist);
-        console.log("GET:", waitlist);
     } catch (error) {
         response.status(500).send("Something went wrong processing the request");
         console.error("getWaitlistError:", error);
@@ -37,15 +35,15 @@ waitlistRouter.post("/waitlist", validateJwtToken, async (request: Request, resp
         });
 
         if (exists) {
-            response.status(400).send({error: "User is already in wait list"});
+            response.status(400).send({ error: "User is already in wait list" });
             return;
         }
 
         // Save user on database
-        const waitlistUser = new WaitlistModel({username: username});
+        const waitlistUser = new WaitlistModel({ username: username });
         await waitlistUser.save();
 
-        response.status(201).send({waitlistUser});
+        response.status(201).send({ waitlistUser });
     } catch (error) {
         response.status(500).send({
             error: "Something went wrong processing your request.",
@@ -66,7 +64,6 @@ waitlistRouter.delete("/waitlist/:username", validateJwtToken, async (request: R
             locale: "en",
             strength: 2,
         });
-        console.log(result);
 
         // If no entity was found, return 'Not Found'
         if (!result) {

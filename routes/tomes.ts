@@ -9,12 +9,11 @@ const tomeRouter = Router();
 
 tomeRouter.get("/tomes", async (request: Request, response: Response) => {
     try {
-        // Get 10 users ordered by time added
+        // Get users ordered by time added
         const tomeList = await TomeModel.find({}).sort({ dateAdded: 1 });
 
         // Return 'OK' if nothing goes wrong
         response.status(200).send(tomeList);
-        console.log("GET:", tomeList);
     } catch (error) {
         response.status(500);
         response.send({ error: "Something went wrong processing the request." });
@@ -24,7 +23,7 @@ tomeRouter.get("/tomes", async (request: Request, response: Response) => {
 
 tomeRouter.get("/tomes/:username", async (request: Request<{ username: string }>, response: Response) => {
     try {
-        // Get 10 users ordered by time added
+        // Search for specific user
         const result = await TomeModel.findOne({ username: request.params.username }).collation({
             strength: 2,
             locale: "en",
@@ -37,7 +36,8 @@ tomeRouter.get("/tomes/:username", async (request: Request<{ username: string }>
             return;
         }
 
-        const position = (await TomeModel.find({ dateAdded: { $lt: result.dateAdded.getTime() } }).countDocuments()) + 1;
+        const position =
+            (await TomeModel.find({ dateAdded: { $lt: result.dateAdded.getTime() } }).countDocuments()) + 1;
 
         // Return 'OK' if nothing goes wrong
         response.status(200).send({ username: result.username, position: position });
@@ -82,6 +82,7 @@ tomeRouter.post("/tomes", validateJwtToken, async (request: Request, response: R
     }
 });
 
+// TODO: implement search by uuid
 tomeRouter.delete(
     "/tomes/:username",
     validateJwtToken,

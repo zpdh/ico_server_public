@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Router } from "express";
 import app, { server } from "./app.js";
 import { connect } from "mongoose";
 import bodyParser from "body-parser";
@@ -10,7 +10,11 @@ import raidRouter from "./routes/raids.js";
 import aspectRouter from "./routes/aspects.js";
 import tomeRouter from "./routes/tomes.js";
 import waitlistRouter from "./routes/waitlist.js";
-import "./routes/discord.js";
+import modVersionRouter from "./routes/modVersion.js";
+import "./sockets/discord.js";
+import wynnRouter from "./routes/wynn.js";
+import healthRouter from "./routes/healthCheck.js";
+import userInfoRouter from "./routes/userInfo.js";
 
 app.use(express.json());
 app.use(cors());
@@ -32,10 +36,16 @@ try {
     console.error("Failed to connect to database:", error);
 }
 
+const router = Router();
+app.use("/api/v1", router);
 // Map endpoints
-app.use(statusRouter);
-app.use("/auth", authenticationRouter);
-app.use(raidRouter);
-app.use(aspectRouter);
-app.use(tomeRouter);
-app.use(waitlistRouter);
+router.use("/auth", authenticationRouter);
+router.use("/user", userInfoRouter);
+router.use("/wynn", wynnRouter);
+router.use("/healthz", healthRouter);
+router.use("/mod", modVersionRouter);
+router.use("/raids", raidRouter);
+router.use(statusRouter);
+router.use(aspectRouter);
+router.use(tomeRouter);
+router.use(waitlistRouter);
